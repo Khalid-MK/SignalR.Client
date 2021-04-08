@@ -6,6 +6,7 @@ import {
     LogLevel,
     HttpTransportType,
 } from "@microsoft/signalr";
+import useSignalR from "./CustomHooks/useSignalR";
 
 function App() {
     const [connection, setConnection] = useState(null);
@@ -27,48 +28,30 @@ function App() {
         return () => {};
     }, []);
 
-    useEffect(() => {
-        // Define Connection
-        const newConnection = new HubConnectionBuilder()
-            .configureLogging(LogLevel.Debug)
-            .withUrl("https://localhost:5001/hubs/dataHub", {
-                skipNegotiation: true,
-                transport: HttpTransportType.WebSockets,
-            })
-            .withAutomaticReconnect()
-            .build();
-
-        setConnection(newConnection);
-
-        return () => {};
-    }, []);
+    const { invoke, on } = useSignalR(
+        "https://localhost:5001/hubs/dataHub",
+        true
+    );
 
     useEffect(() => {
-        if (connection) {
-            // Start Connection
-            connection
-                .start()
-                // Define CallBack Function
-                .then((result) => {
-                    console.log("Connected!");
-                    // Register Subscribed Events
-                    connection.on("ReceiveData", (data) => {
-                        console.log(data);
-                    });
-                    connection.on("ConnectedMessage", (data) => {
-                        console.log(data);
-                    });
-                    connection.on("RecordDeleted", (data) => {
-                        console.log(data);
-                    });
-                })
-                .catch((e) => console.log("Connection failed: ", e));
+        try {
+            on("ReceiveData", (data) => {
+                console.log(data);
+            });
+            on("ConnectedMessage", (data) => {
+                console.log(data);
+            });
+            on("RecordDeleted", (data) => {
+                console.log(data);
+            });
+        } catch (error) {
+            console.log("Connection failed: ", error);
         }
-    }, [connection]);
+    }, [on]);
 
     // Call Server Function
     const handleDleteClick = async (user) => {
-        if (connection.connectionStarted) {
+        if (true) {
             try {
                 // Invoke Server Method.
 
@@ -82,9 +65,10 @@ function App() {
                 //     }
                 // );
 
-                axios.delete(`https://localhost:5001/api/data/${user.id}`);
+                // axios.delete(`https://localhost:5001/api/data/${user.id}`);
 
                 // await connection.invoke("sendData", { id: 2, name: "khalid" });
+                invoke("sendData", { id: 2, name: "khalid" });
             } catch (e) {
                 console.log(e);
             }
