@@ -11,6 +11,12 @@ import useSignalR from "./CustomHooks/useSignalR";
 function App() {
     const [connection, setConnection] = useState(null);
     const [data, setData] = useState([]);
+    const [title, setTitle] = useState("1");
+
+    const { _connection, invoke, on } = useSignalR(
+        "https://localhost:5001/hubs/dataHub",
+        true
+    );
 
     useEffect(() => {
         async function getUsers() {
@@ -24,14 +30,7 @@ function App() {
         }
 
         getUsers();
-
-        return () => {};
     }, []);
-
-    const { invoke, on } = useSignalR(
-        "https://localhost:5001/hubs/dataHub",
-        true
-    );
 
     useEffect(() => {
         try {
@@ -48,6 +47,15 @@ function App() {
             console.log("Connection failed: ", error);
         }
     }, [on]);
+
+    const handleEditClick = (user) => {
+        // try {
+        //     invoke("sendData2", { id: 2, name: "khalid" });
+        // } catch (e) {
+        //     console.log(e);
+        // }
+        setTitle(user.name);
+    };
 
     // Call Server Function
     const handleDleteClick = async (user) => {
@@ -81,7 +89,7 @@ function App() {
         <div className="App">
             <table>
                 <tr>
-                    <th>Name</th>
+                    <th>{title}</th>
                     <th>UserName</th>
                     <th>Email</th>
                 </tr>
@@ -97,6 +105,12 @@ function App() {
                                     onClick={(e) => handleDleteClick(user)}
                                 >
                                     Delete
+                                </button>
+                                <button
+                                    className="btn btn-warning"
+                                    onClick={(e) => handleEditClick(user)}
+                                >
+                                    Edit
                                 </button>
                             </td>
                         </tr>
