@@ -1,22 +1,28 @@
 import { useEffect, useState } from "react";
 import "./App.css";
 import axios from "axios";
-import {
-    HubConnectionBuilder,
-    LogLevel,
-    HttpTransportType,
-} from "@microsoft/signalr";
 import useSignalR from "./CustomHooks/useSignalR";
+import Button from "@material-ui/core/Button";
+import Snackbar from "@material-ui/core/Snackbar";
+import Alert from "@material-ui/lab/Alert";
+import IconButton from "@material-ui/core/IconButton";
+import CloseIcon from "@material-ui/icons/Close";
 
 function App() {
     const [connection, setConnection] = useState(null);
     const [data, setData] = useState([]);
     const [title, setTitle] = useState("1");
+    const [openConnected, setOpenConnected] = useState(false);
+    const [openDisConnected, setOpenDisConnected] = useState(false);
 
-    const { _connection, invoke, on } = useSignalR(
-        "https://localhost:5001/hubs/dataHub",
-        true
-    );
+    const {
+        invokeEvent,
+        onEvent,
+        offEvent,
+        _connection,
+        stopConnection,
+        startConnection,
+    } = useSignalR("https://localhost:5001/hubs/dataHub", true);
 
     useEffect(() => {
         async function getUsers() {
@@ -30,30 +36,46 @@ function App() {
         }
 
         getUsers();
+
+        return () => {
+            stopConnection();
+        };
     }, []);
 
+    // Record Deleted
     useEffect(() => {
-        try {
-            on("ReceiveData", (data) => {
-                console.log(data);
-            });
-            on("ConnectedMessage", (data) => {
-                console.log(data);
-            });
-            on("RecordDeleted", (data) => {
-                console.log(data);
-            });
-        } catch (error) {
-            console.log("Connection failed: ", error);
-        }
-    }, [on]);
+        onEvent("RecordDeleted", (response) => {
+            let newData = data.filter((u) => u.id != response);
+            setData(newData);
+        });
+        return () => {
+            offEvent("RecordDeleted", null);
+        };
+    }, [data, offEvent, onEvent]);
+
+    // Data Received
+    useEffect(() => {
+        onEvent("ReceiveData", (response) => {
+            console.log(response);
+        });
+        return () => {
+            offEvent("ReceiveData", null);
+        };
+    }, [data, offEvent, onEvent]);
+
+    // Server Connected
+    useEffect(() => {
+        onEvent("ConnectedMessage", (response) => {
+            setOpenConnected(true);
+        });
+        return () => {
+            offEvent("ConnectedMessage", null);
+        };
+    }, [data, offEvent, onEvent]);
 
     const handleEditClick = (user) => {
-        // try {
-        //     invoke("sendData2", { id: 2, name: "khalid" });
-        // } catch (e) {
-        //     console.log(e);
-        // }
+        stopConnection();
+        setOpenDisConnected(true);
         setTitle(user.name);
     };
 
@@ -61,22 +83,7 @@ function App() {
     const handleDleteClick = async (user) => {
         if (true) {
             try {
-                // Invoke Server Method.
-
-                // await axios.post(
-                //     "https://localhost:5001/api/data/insertdata",
-                //     JSON.stringify(user),
-                //     {
-                //         headers: {
-                //             "Content-Type": "application/json",
-                //         },
-                //     }
-                // );
-
-                // axios.delete(`https://localhost:5001/api/data/${user.id}`);
-
-                // await connection.invoke("sendData", { id: 2, name: "khalid" });
-                invoke("sendData", { id: 2, name: "khalid" });
+                invokeEvent("deleteUser", user.id);
             } catch (e) {
                 console.log(e);
             }
@@ -85,38 +92,74 @@ function App() {
         }
     };
 
+    const handleStartConnection = () => {
+        startConnection();
+    };
+
     return (
         <div className="App">
-            <table>
-                <tr>
-                    <th>{title}</th>
-                    <th>UserName</th>
-                    <th>Email</th>
-                </tr>
-                {data.map((user, index) => {
-                    return (
-                        <tr key={index}>
-                            <td>{user.name}</td>
-                            <td>{user.username}</td>
-                            <td>{user.email}</td>
-                            <td className="text-center">
-                                <button
-                                    className="btn btn-danger"
-                                    onClick={(e) => handleDleteClick(user)}
-                                >
-                                    Delete
-                                </button>
-                                <button
-                                    className="btn btn-warning"
-                                    onClick={(e) => handleEditClick(user)}
-                                >
-                                    Edit
-                                </button>
-                            </td>
-                        </tr>
-                    );
-                })}
-            </table>
+            <div>
+                <Snackbar
+                    open={openConnected}
+                    autoHideDuration={2000}
+                    onClose={() => setOpenConnected(!openConnected)}
+                >
+                    <Alert
+                        onClose={() => setOpenConnected(!openConnected)}
+                        severity="success"
+                    >
+                        Server Connected Successfuly !!
+                    </Alert>
+                </Snackbar>
+                <Snackbar
+                    open={openDisConnected}
+                    autoHideDuration={2000}
+                    onClose={() => setOpenDisConnected(!openDisConnected)}
+                >
+                    <Alert
+                        onClose={() => setOpenDisConnected(!openDisConnected)}
+                        severity="error"
+                    >
+                        Server Disconnected !!
+                    </Alert>
+                </Snackbar>
+                <table>
+                    <tr>
+                        <th>{title}</th>
+                        <th>UserName</th>
+                        <th>Email</th>
+                    </tr>
+                    {data.map((user, index) => {
+                        return (
+                            <tr key={index}>
+                                <td>{user.name}</td>
+                                <td>{user.username}</td>
+                                <td>{user.email}</td>
+                                <td className="text-center">
+                                    <button
+                                        className="btn btn-danger"
+                                        onClick={(e) => handleDleteClick(user)}
+                                    >
+                                        Delete
+                                    </button>
+                                    <button
+                                        className="btn btn-warning"
+                                        onClick={(e) => handleEditClick(user)}
+                                    >
+                                        End
+                                    </button>
+                                    <button
+                                        className="btn btn-success"
+                                        onClick={(e) => handleStartConnection()}
+                                    >
+                                        Start
+                                    </button>
+                                </td>
+                            </tr>
+                        );
+                    })}
+                </table>
+            </div>
         </div>
     );
 }
