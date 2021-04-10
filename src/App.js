@@ -15,15 +15,14 @@ function App() {
     const [openConnected, setOpenConnected] = useState(false);
     const [openDisConnected, setOpenDisConnected] = useState(false);
 
-    const { invoke, on, off, _connection } = useSignalR(
-        "https://localhost:5001/hubs/dataHub",
-        true
-    );
-
-    const del = (id) => {
-        let newData = data.filter((u) => u.id != id);
-        setData(newData);
-    };
+    const {
+        invokeEvent,
+        onEvent,
+        offEvent,
+        _connection,
+        stopConnection,
+        startConnection,
+    } = useSignalR("https://localhost:5001/hubs/dataHub", true);
 
     useEffect(() => {
         async function getUsers() {
@@ -37,48 +36,46 @@ function App() {
         }
 
         getUsers();
+
+        return () => {
+            stopConnection();
+        };
     }, []);
 
+    // Record Deleted
     useEffect(() => {
-        on("RecordDeleted", (response) => {
+        onEvent("RecordDeleted", (response) => {
             let newData = data.filter((u) => u.id != response);
             setData(newData);
         });
         return () => {
-            off("RecordDeleted", null);
+            offEvent("RecordDeleted", null);
         };
-    }, [data, off, on]);
+    }, [data, offEvent, onEvent]);
 
-    // useEffect(() => {
-    //     console.log("in");
-    //     try {
-    //         on("ReceiveData", (response) => {
-    //             console.log(response);
-    //         });
-    //         on("ConnectedMessage", (response) => {
-    //             console.log(response);
-    //             setOpenConnected(true);
-    //         });
-    //         on("DisConnectedMessage", (response) => {
-    //             console.log(response);
-    //             setOpenConnected(true);
+    // Data Received
+    useEffect(() => {
+        onEvent("ReceiveData", (response) => {
+            console.log(response);
+        });
+        return () => {
+            offEvent("ReceiveData", null);
+        };
+    }, [data, offEvent, onEvent]);
 
-    //             //setOpenDisConnected(true);
-    //         });
-    //     } catch (error) {
-    //         console.log("Connection failed: ", error);
-    //     }
-    // }, [data]);
+    // Server Connected
+    useEffect(() => {
+        onEvent("ConnectedMessage", (response) => {
+            setOpenConnected(true);
+        });
+        return () => {
+            offEvent("ConnectedMessage", null);
+        };
+    }, [data, offEvent, onEvent]);
 
     const handleEditClick = (user) => {
-        _connection.stop();
+        stopConnection();
         setOpenDisConnected(true);
-
-        // try {
-        //     invoke("sendData2", { id: 2, name: "khalid" });
-        // } catch (e) {
-        //     console.log(e);
-        // }
         setTitle(user.name);
     };
 
@@ -86,28 +83,17 @@ function App() {
     const handleDleteClick = async (user) => {
         if (true) {
             try {
-                // Invoke Server Method.
-
-                // await axios.post(
-                //     "https://localhost:5001/api/data/insertdata",
-                //     JSON.stringify(user),
-                //     {
-                //         headers: {
-                //             "Content-Type": "application/json",
-                //         },
-                //     }
-                // );
-
-                //axios.delete(`https://localhost:5001/api/data/${user.id}`);
-
-                invoke("deleteUser", user.id);
-                //invoke("sendData", { id: 2, name: "khalid" });
+                invokeEvent("deleteUser", user.id);
             } catch (e) {
                 console.log(e);
             }
         } else {
             alert("No connection to server yet.");
         }
+    };
+
+    const handleStartConnection = () => {
+        startConnection();
     };
 
     return (
@@ -160,7 +146,13 @@ function App() {
                                         className="btn btn-warning"
                                         onClick={(e) => handleEditClick(user)}
                                     >
-                                        Edit
+                                        End
+                                    </button>
+                                    <button
+                                        className="btn btn-success"
+                                        onClick={(e) => handleStartConnection()}
+                                    >
+                                        Start
                                     </button>
                                 </td>
                             </tr>

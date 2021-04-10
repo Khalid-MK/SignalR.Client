@@ -30,23 +30,29 @@ function useSignalR(url, isDebug = false) {
     //? re-establish the connection if connection dropped
     _connection.onclose((error) => {
         console.assert(_connection.state === HubConnectionState.Disconnected);
-        console.log(
-            "Connection closed due to error. Try refreshing this page to restart the connection",
-            error ?? ""
-        );
+        isDebug &&
+            console.log(
+                "Connection closed due to error. Try refreshing this page to restart the connection",
+                error ?? ""
+            );
     });
 
     _connection.onreconnecting((error) => {
         console.assert(_connection.state === HubConnectionState.Reconnecting);
-        console.log("Connection lost due to error. Reconnecting.", error ?? "");
+        isDebug &&
+            console.log(
+                "Connection lost due to error. Reconnecting.",
+                error ?? ""
+            );
     });
 
     _connection.onreconnected((connectionId) => {
         console.assert(_connection.state === HubConnectionState.Connected);
-        console.log(
-            "Connection reestablished. Connected with connectionId",
-            connectionId ?? ""
-        );
+        isDebug &&
+            console.log(
+                "Connection reestablished. Connected with connectionId",
+                connectionId ?? ""
+            );
     });
 
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -55,39 +61,84 @@ function useSignalR(url, isDebug = false) {
             //? Start Connection
             await _connection
                 .start()
-                .catch((e) => console.log("Connection failed: ", e));
+                .catch((e) => isDebug && console.log("Connection failed: ", e));
         }
 
         return async () => {
             await _connection.stop();
         };
-    }, [_connection]);
+    }, [_connection, isDebug]);
 
     //? This Callback use to invoke Method in backend
-    const invoke = useCallback(
+    const invokeEvent = useCallback(
         (method, data) => {
-            _connection.invoke(method, data);
+            if (_connection.state === HubConnectionState.Connected) {
+                _connection
+                    .invoke(method, data)
+                    .catch(
+                        (e) =>
+                            isDebug && console.log("Cannot Invoke this Event")
+                    );
+            } else {
+                isDebug &&
+                    console.log(
+                        "Cannot Invoke this Event !! Server is disconnected"
+                    );
+            }
         },
-        [_connection]
+        [_connection, isDebug]
     );
 
     //? This Callback use to fire event to backend
-    const on = useCallback(
+    const onEvent = useCallback(
         (event, callBack) => {
-            _connection.on(event, callBack);
+            try {
+                _connection.on(event, callBack);
+            } catch (e) {
+                isDebug && console.log(e);
+            }
         },
-        [_connection]
+        [_connection, isDebug]
     );
 
     //? This Callback use to remove fire event to backend
-    const off = useCallback(
+    const offEvent = useCallback(
         (event, callBack) => {
-            _connection.off(event, callBack);
+            try {
+                _connection.off(event, callBack);
+            } catch (e) {
+                isDebug && console.log(e);
+            }
         },
-        [_connection]
+        [_connection, isDebug]
     );
 
-    return { _connection, invoke, on, off };
+    //? Stop the Server Connection
+    const stopConnection = () => {
+        if (_connection.state === HubConnectionState.Connected) {
+            _connection.stop().catch((e) => isDebug && console.log(e));
+        }
+    };
+
+    //? Start the Server Connection
+    const startConnection = () => {
+        if (_connection.state !== HubConnectionState.Connected) {
+            try {
+                _connection.start();
+            } catch (e) {
+                isDebug && console.log(e);
+            }
+        }
+    };
+
+    return {
+        _connection,
+        invokeEvent,
+        onEvent,
+        offEvent,
+        stopConnection,
+        startConnection,
+    };
 }
 
 export default useSignalR;
